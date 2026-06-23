@@ -18,20 +18,9 @@ export function Hero() {
 
     setIsDesktop(desktop);
 
-    const video = videoRef.current;
-    const container = containerRef.current;
-    if (!video || !container) return;
-
-    if (!desktop) {
-      // Mobile fallback: shrink the container to one viewport so the user
-      // doesn't have to scroll through 300 vh of empty space.
-      container.style.height = '100vh';
-
-      // iOS Safari allows play() on muted videos without a user gesture.
-      video.loop = true;
-      video.play().catch(() => {
-        // Silently swallow — browser may block until user interaction.
-      });
+    // On mobile: shrink container to 100 vh — no need to scroll 300 vh.
+    if (!desktop && containerRef.current) {
+      containerRef.current.style.height = '100vh';
     }
   }, []);
 
@@ -69,29 +58,33 @@ export function Hero() {
     <div ref={containerRef} className="relative" style={{ height: '300vh' }}>
       {/* Sticky viewport */}
       <div className="sticky top-0 h-screen overflow-hidden">
-        {/* Video */}
-        <video
-          ref={videoRef}
-          src="/hero-optimized.mp4"
-          muted
-          playsInline
-          preload="auto"
-          disablePictureInPicture
-          // React synthetic events: always fire, no race with useEffect
-          onLoadedMetadata={() => setVideoReady(true)}
-          onCanPlayThrough={() => setVideoReady(true)}
-          onError={(e) => console.error('[Hero] video error', e)}
+        {/* Poster — mobile background + desktop placeholder while video loads */}
+        <img
+          src="/hero-poster.jpg"
+          alt=""
+          aria-hidden="true"
           className={`absolute inset-0 w-full h-full object-cover transition-opacity duration-1000 ${
-            videoReady ? 'opacity-100' : 'opacity-0'
+            isDesktop && videoReady ? 'opacity-0' : 'opacity-100'
           }`}
         />
 
-        {/* Fallback gradient background */}
-        <div
-          className={`absolute inset-0 bg-gradient-to-br from-[#0a0a0a] via-[#0d1a14] to-[#0a0a0a] transition-opacity duration-1000 ${
-            videoReady ? 'opacity-0' : 'opacity-100'
-          }`}
-        />
+        {/* Video — only mounted on desktop; never downloaded on mobile */}
+        {isDesktop && (
+          <video
+            ref={videoRef}
+            src="/hero-optimized.mp4"
+            muted
+            playsInline
+            preload="auto"
+            disablePictureInPicture
+            onLoadedMetadata={() => setVideoReady(true)}
+            onCanPlayThrough={() => setVideoReady(true)}
+            onError={(e) => console.error('[Hero] video error', e)}
+            className={`absolute inset-0 w-full h-full object-cover transition-opacity duration-1000 ${
+              videoReady ? 'opacity-100' : 'opacity-0'
+            }`}
+          />
+        )}
 
         {/* Dark overlay — top and bottom */}
         <div className="absolute inset-0 bg-gradient-to-b from-black/60 via-black/20 to-black/80" />
