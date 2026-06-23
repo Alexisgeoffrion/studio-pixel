@@ -67,9 +67,22 @@ export function Contact() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setStatus('sending');
-    // Simulate send
-    await new Promise((r) => setTimeout(r, 1500));
-    setStatus('sent');
+    try {
+      const res = await fetch('https://formspree.io/f/xwvdpwjy', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
+        body: JSON.stringify({
+          name: formData.nom,
+          email: formData.courriel,
+          _replyto: formData.courriel,
+          phone: formData.telephone,
+          message: formData.message,
+        }),
+      });
+      setStatus(res.ok ? 'sent' : 'error');
+    } catch {
+      setStatus('error');
+    }
   };
 
   return (
@@ -263,6 +276,12 @@ export function Contact() {
                       </>
                     )}
                   </button>
+
+                  {status === 'error' && (
+                    <p className="text-sm text-red-400 text-center bg-red-500/10 border border-red-500/20 rounded-xl px-4 py-3">
+                      Une erreur s'est produite. Veuillez réessayer ou nous contacter directement par courriel.
+                    </p>
+                  )}
 
                   <p className="text-xs text-[#888] text-center">
                     Aucun engagement. Nous ne partageons jamais vos informations.
