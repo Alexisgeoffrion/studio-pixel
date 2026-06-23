@@ -5,8 +5,40 @@ export function Hero() {
   const videoRef = useRef<HTMLVideoElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
   const [videoReady, setVideoReady] = useState(false);
+  // Resolved client-side only — default false avoids SSR/hydration mismatch.
+  const [isDesktop, setIsDesktop] = useState(false);
 
+  // ── Step 1: detect device type after mount ──────────────────────────────
   useEffect(() => {
+    // "pointer: fine" = mouse/trackpad; "pointer: coarse" = touchscreen.
+    // Combined with min-width this is more reliable than user-agent sniffing.
+    const desktop = window.matchMedia(
+      '(pointer: fine) and (min-width: 768px)'
+    ).matches;
+
+    setIsDesktop(desktop);
+
+    const video = videoRef.current;
+    const container = containerRef.current;
+    if (!video || !container) return;
+
+    if (!desktop) {
+      // Mobile fallback: shrink the container to one viewport so the user
+      // doesn't have to scroll through 300 vh of empty space.
+      container.style.height = '100vh';
+
+      // iOS Safari allows play() on muted videos without a user gesture.
+      video.loop = true;
+      video.play().catch(() => {
+        // Silently swallow — browser may block until user interaction.
+      });
+    }
+  }, []);
+
+  // ── Step 2: scroll-scrubbing rAF loop — desktop only ───────────────────
+  useEffect(() => {
+    if (!isDesktop) return;
+
     const video = videoRef.current;
     const container = containerRef.current;
     if (!video || !container) return;
@@ -15,10 +47,6 @@ export function Hero() {
 
     const tick = () => {
       if (video.readyState >= 2 && video.duration) {
-        // getBoundingClientRect gives the real viewport position at call time —
-        // correct regardless of offsetParent chain or CSS transforms.
-        // When the hero container scrolls upward, rect.top goes negative;
-        // -rect.top is therefore the pixels scrolled into the section.
         const rect = container.getBoundingClientRect();
         const scrollableRange = container.offsetHeight - window.innerHeight;
         const progress = Math.max(0, Math.min(1, -rect.top / scrollableRange));
@@ -30,12 +58,12 @@ export function Hero() {
       rafId = requestAnimationFrame(tick);
     };
 
-    // Race-condition guard: video may have already loaded before this effect ran.
+    // Guard against race: video may have loaded before this effect ran.
     if (video.readyState >= 1) setVideoReady(true);
 
     rafId = requestAnimationFrame(tick);
     return () => cancelAnimationFrame(rafId);
-  }, []);
+  }, [isDesktop]);
 
   return (
     <div ref={containerRef} className="relative" style={{ height: '300vh' }}>
